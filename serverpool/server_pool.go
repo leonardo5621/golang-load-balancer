@@ -3,7 +3,6 @@ package serverpool
 import (
 	"context"
 	"log"
-	"net/url"
 	"sync/atomic"
 	"time"
 
@@ -15,7 +14,6 @@ type ServerPool interface {
 	NextIndex() int
 	GetNextPeer() backend.Backend
 	AddBackend(backend.Backend)
-	MarkBackendStatus(*url.URL, bool)
 }
 
 type serverPool struct {
@@ -48,6 +46,7 @@ func (s *serverPool) HealthCheck(ctx context.Context) {
 	aliveChannel := make(chan bool, 1)
 
 	for _, b := range s.backends {
+		b := b
 		requestCtx, stop := context.WithTimeout(ctx, 10*time.Second)
 		defer stop()
 		status := "up"
@@ -75,14 +74,5 @@ func NewServerPool() ServerPool {
 	return &serverPool{
 		backends: make([]backend.Backend, 0),
 		current:  uint64(0),
-	}
-}
-
-func (s *serverPool) MarkBackendStatus(backendUrl *url.URL, alive bool) {
-	for _, b := range s.backends {
-		if b.GetURL().String() == backendUrl.String() {
-			b.SetAlive(alive)
-			break
-		}
 	}
 }

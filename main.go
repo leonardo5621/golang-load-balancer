@@ -15,47 +15,9 @@ import (
 	"time"
 
 	"github.com/leonardo5621/golang-load-balancer/backend"
+	"github.com/leonardo5621/golang-load-balancer/frontend"
 	"github.com/leonardo5621/golang-load-balancer/serverpool"
 )
-
-const (
-	Attempts int = iota
-	Retry
-)
-
-var (
-	serverPool serverpool.ServerPool
-)
-
-func GetAttemptsFromContext(r *http.Request) int {
-	if attempts, ok := r.Context().Value(Attempts).(int); ok {
-		return attempts
-	}
-	return 1
-}
-
-func GetRetryFromContext(r *http.Request) int {
-	if retry, ok := r.Context().Value(Retry).(int); ok {
-		return retry
-	}
-	return 0
-}
-
-func lb(w http.ResponseWriter, r *http.Request) {
-	attempts := GetAttemptsFromContext(r)
-	if attempts > 3 {
-		log.Printf("%s(%s) Max attempts reached, terminating\n", r.RemoteAddr, r.URL.Path)
-		http.Error(w, "Service not available", http.StatusServiceUnavailable)
-		return
-	}
-
-	peer := serverPool.GetNextPeer()
-	if peer != nil {
-		peer.ServeThoughReverseProxy(w, r)
-		return
-	}
-	http.Error(w, "Service not available", http.StatusServiceUnavailable)
-}
 
 func main() {
 	var (
@@ -70,7 +32,8 @@ func main() {
 	defer stop()
 
 	backendEndpoints := strings.Split(backendList, ",")
-	serverPool = serverpool.NewServerPool()
+	serverPool := serverpool.NewServerPool()
+	loadBalancer := frontend.NewLoadBalancer(serverPool)
 	for _, u := range backendEndpoints {
 		endpoint, err := url.Parse(u)
 		if err != nil {
@@ -78,38 +41,35 @@ func main() {
 		}
 
 		rp := httputil.NewSingleHostReverseProxy(endpoint)
+		backendServer := backend.NewBackend(endpoint, rp)
 		rp.ErrorHandler = func(writer http.ResponseWriter, request *http.Request, e error) {
 			log.Printf("[%s] %s\n", endpoint.Host, e.Error())
-			retries := GetRetryFromContext(request)
+			retries := frontend.GetRetryFromContext(request)
 			if retries < 3 {
 				select {
 				case <-time.After(10 * time.Millisecond):
-					ctx := context.WithValue(request.Context(), Retry, retries+1)
+					ctx := context.WithValue(request.Context(), frontend.Retry, retries+1)
 					rp.ServeHTTP(writer, request.WithContext(ctx))
 				}
 				return
 			}
+			backendServer.SetAlive(false)
 
-			// after 3 retries, mark this backend as down
-			serverPool.MarkBackendStatus(endpoint, false)
-
-			// if the same request routing for few attempts with different backends, increase the count
-			attempts := GetAttemptsFromContext(request)
+			attempts := frontend.GetAttemptsFromContext(request)
 			log.Printf("%s(%s) Attempting retry %d\n", request.RemoteAddr, request.URL.Path, attempts)
-			ctx := context.WithValue(request.Context(), Attempts, attempts+1)
-			lb(writer, request.WithContext(ctx))
+			ctx := context.WithValue(request.Context(), frontend.Attempts, attempts+1)
+			loadBalancer.Serve(writer, request.WithContext(ctx))
 		}
 
-		serverPool.AddBackend(backend.NewBackend(endpoint, rp))
+		serverPool.AddBackend(backendServer)
 	}
 
 	server := http.Server{
 		Addr:    fmt.Sprintf(":%d", port),
-		Handler: http.HandlerFunc(lb),
+		Handler: http.HandlerFunc(loadBalancer.Serve),
 	}
 
 	go serverpool.LauchHealthCheck(ctx, serverPool)
-
 	go func() {
 		<-ctx.Done()
 		shutdownCtx, _ := context.WithTimeout(context.Background(), 10*time.Second)

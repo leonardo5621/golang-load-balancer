@@ -13,6 +13,7 @@ func IsBackendAlive(ctx context.Context, aliveChannel chan bool, u *url.URL) {
 	if err != nil {
 		log.Println("Site unreachable, error: ", err)
 		aliveChannel <- false
+		return
 	}
 	_ = conn.Close()
 	aliveChannel <- true
