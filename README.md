@@ -7,7 +7,7 @@ The concept behind this project was based upon the [simplelb](https://github.com
 
 The input is given through a configuration file reffered as `config.yaml`,  example of a configuration file down below:
 
-```
+```yaml
 ## Load Balancer Port
 lb_port: 3333
 ## In case of failed request, maximum amount of attempts in other hosts
