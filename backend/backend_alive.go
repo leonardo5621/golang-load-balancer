@@ -2,16 +2,18 @@ package backend
 
 import (
 	"context"
-	"log"
 	"net"
 	"net/url"
+
+	"github.com/leonardo5621/golang-load-balancer/utils"
+	"go.uber.org/zap"
 )
 
 func IsBackendAlive(ctx context.Context, aliveChannel chan bool, u *url.URL) {
 	var d net.Dialer
 	conn, err := d.DialContext(ctx, "tcp", u.Host)
 	if err != nil {
-		log.Println("Site unreachable, error: ", err)
+		utils.Logger.Debug("Site unreachable", zap.Error(err))
 		aliveChannel <- false
 		return
 	}

@@ -14,9 +14,12 @@ import (
 	"syscall"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/leonardo5621/golang-load-balancer/backend"
 	"github.com/leonardo5621/golang-load-balancer/frontend"
 	"github.com/leonardo5621/golang-load-balancer/serverpool"
+	"github.com/leonardo5621/golang-load-balancer/utils"
 )
 
 func main() {
@@ -31,32 +34,47 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	logger := utils.InitLogger()
+	defer logger.Sync()
+
 	backendEndpoints := strings.Split(backendList, ",")
+	if len(backendEndpoints) == 0 {
+		utils.Logger.Fatal("empty server pool")
+	}
+
 	serverPool := serverpool.NewServerPool()
 	loadBalancer := frontend.NewLoadBalancer(serverPool)
+
 	for _, u := range backendEndpoints {
 		endpoint, err := url.Parse(u)
 		if err != nil {
-			log.Fatal(err)
+			logger.Fatal(err.Error(), zap.String("URL", u))
 		}
 
 		rp := httputil.NewSingleHostReverseProxy(endpoint)
 		backendServer := backend.NewBackend(endpoint, rp)
 		rp.ErrorHandler = func(writer http.ResponseWriter, request *http.Request, e error) {
-			log.Printf("[%s] %s\n", endpoint.Host, e.Error())
+			logger.Error("error handling the request",
+				zap.String("host", endpoint.Host),
+				zap.Error(e),
+			)
 			retries := frontend.GetRetryFromContext(request)
+
 			if retries < 3 {
-				select {
-				case <-time.After(10 * time.Millisecond):
-					ctx := context.WithValue(request.Context(), frontend.Retry, retries+1)
-					rp.ServeHTTP(writer, request.WithContext(ctx))
-				}
+				<-time.After(50 * time.Duration(retries+1) * time.Millisecond)
+				ctx := context.WithValue(request.Context(), frontend.Retry, retries+1)
+				rp.ServeHTTP(writer, request.WithContext(ctx))
 				return
 			}
-			backendServer.SetAlive(false)
 
+			backendServer.SetAlive(false)
 			attempts := frontend.GetAttemptsFromContext(request)
-			log.Printf("%s(%s) Attempting retry %d\n", request.RemoteAddr, request.URL.Path, attempts)
+			logger.Info(
+				"Attempting retry",
+				zap.String("address", request.RemoteAddr),
+				zap.String("URL", request.URL.Path),
+				zap.Int("attempts", attempts),
+			)
 			ctx := context.WithValue(request.Context(), frontend.Attempts, attempts+1)
 			loadBalancer.Serve(writer, request.WithContext(ctx))
 		}
@@ -78,8 +96,11 @@ func main() {
 		}
 	}()
 
-	log.Printf("Load Balancer started at :%d\n", port)
+	logger.Info(
+		"Load Balancer started",
+		zap.Int("port", port),
+	)
 	if err := server.ListenAndServe(); err != http.ErrServerClosed {
-		log.Fatalf("ListenAndServe(): %v", err)
+		logger.Fatal("ListenAndServe() error", zap.Error(err))
 	}
 }

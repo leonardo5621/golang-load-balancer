@@ -2,11 +2,12 @@ package serverpool
 
 import (
 	"context"
-	"log"
 	"sync/atomic"
 	"time"
 
 	"github.com/leonardo5621/golang-load-balancer/backend"
+	"github.com/leonardo5621/golang-load-balancer/utils"
+	"go.uber.org/zap"
 )
 
 type ServerPool interface {
@@ -14,6 +15,7 @@ type ServerPool interface {
 	NextIndex() int
 	GetNextPeer() backend.Backend
 	AddBackend(backend.Backend)
+	GetServerPoolSize() int
 }
 
 type serverPool struct {
@@ -26,15 +28,13 @@ func (s *serverPool) NextIndex() int {
 }
 
 func (s *serverPool) GetNextPeer() backend.Backend {
-	// loop entire backends to find out an Alive backend
 	next := s.NextIndex()
-	l := len(s.backends) + next // start from next and move a full cycle
+	l := len(s.backends) + next
 	for i := next; i < l; i++ {
-		idx := i % len(s.backends) // take an index by modding with length
-		// if we have an alive backend, use it and store if its not the original one
+		idx := i % len(s.backends)
 		if s.backends[idx].IsAlive() {
 			if i != next {
-				atomic.StoreUint64(&s.current, uint64(idx)) // mark the current one
+				atomic.StoreUint64(&s.current, uint64(idx))
 			}
 			return s.backends[idx]
 		}
@@ -54,7 +54,7 @@ func (s *serverPool) HealthCheck(ctx context.Context) {
 
 		select {
 		case <-ctx.Done():
-			log.Println("Gracefully shutting down health check")
+			utils.Logger.Info("Gracefully shutting down health check")
 			return
 		case alive := <-aliveChannel:
 			b.SetAlive(alive)
@@ -62,12 +62,20 @@ func (s *serverPool) HealthCheck(ctx context.Context) {
 				status = "down"
 			}
 		}
-		log.Printf("%s [%s]\n", b.GetURL(), status)
+		utils.Logger.Debug(
+			"URL Status",
+			zap.String("URL", b.GetURL().String()),
+			zap.String("status", status),
+		)
 	}
 }
 
 func (s *serverPool) AddBackend(b backend.Backend) {
 	s.backends = append(s.backends, b)
+}
+
+func (s *serverPool) GetServerPoolSize() int {
+	return len(s.backends)
 }
 
 func NewServerPool() ServerPool {

@@ -27,7 +27,6 @@ func (b *backend) SetAlive(alive bool) {
 	b.mux.Unlock()
 }
 
-// IsAlive returns true when backend is alive
 func (b *backend) IsAlive() bool {
 	b.mux.RLock()
 	alive := b.Alive

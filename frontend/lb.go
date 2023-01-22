@@ -1,10 +1,11 @@
 package frontend
 
 import (
-	"log"
 	"net/http"
 
 	"github.com/leonardo5621/golang-load-balancer/serverpool"
+	"github.com/leonardo5621/golang-load-balancer/utils"
+	"go.uber.org/zap"
 )
 
 const (
@@ -28,16 +29,34 @@ func GetRetryFromContext(r *http.Request) int {
 
 type LoadBalancer interface {
 	Serve(http.ResponseWriter, *http.Request)
+	GetAttemptLimit() int
 }
 
 type loadBalancer struct {
-	serverPool serverpool.ServerPool
+	serverPool   serverpool.ServerPool
+	attemptLimit int
+}
+
+func (lb *loadBalancer) GetAttemptLimit() int {
+	if lb.attemptLimit == 0 {
+		spLen := lb.serverPool.GetServerPoolSize()
+		if spLen >= 3 {
+			lb.attemptLimit = 3
+		} else {
+			lb.attemptLimit = spLen
+		}
+	}
+	return lb.attemptLimit
 }
 
 func (lb *loadBalancer) Serve(w http.ResponseWriter, r *http.Request) {
 	attempts := GetAttemptsFromContext(r)
-	if attempts > 3 {
-		log.Printf("%s(%s) Max attempts reached, terminating\n", r.RemoteAddr, r.URL.Path)
+	if attempts > lb.GetAttemptLimit() {
+		utils.Logger.Info(
+			"Max attempts reached, terminating",
+			zap.String("address", r.RemoteAddr),
+			zap.String("path", r.URL.Path),
+		)
 		http.Error(w, "Service not available", http.StatusServiceUnavailable)
 		return
 	}

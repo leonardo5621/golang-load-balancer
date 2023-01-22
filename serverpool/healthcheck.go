@@ -2,8 +2,9 @@ package serverpool
 
 import (
 	"context"
-	"log"
 	"time"
+
+	"github.com/leonardo5621/golang-load-balancer/utils"
 )
 
 func LauchHealthCheck(ctx context.Context, sp ServerPool) {
@@ -11,10 +12,10 @@ func LauchHealthCheck(ctx context.Context, sp ServerPool) {
 	for {
 		select {
 		case <-t.C:
-			log.Println("Starting health check...")
+			utils.Logger.Info("Starting health check...")
 			go sp.HealthCheck(ctx)
 		case <-ctx.Done():
-			log.Println("Closing Health Check")
+			utils.Logger.Info("Closing Health Check")
 			return
 		}
 	}
