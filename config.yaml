@@ -1,0 +1,6 @@
+lb_port: 3333
+max_attempt_limit: 3
+retry_limit: 3
+backends:
+  - "http://localhost:100"
+  - "http://localhost:101"

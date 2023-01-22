@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -10,7 +9,6 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -23,29 +21,21 @@ import (
 )
 
 func main() {
-	var (
-		port        int
-		backendList string
-	)
-	flag.IntVar(&port, "port", 3333, "Port to serve the LB")
-	flag.StringVar(&backendList, "backends", "", "Load balanced backends, use commas to separate")
-	flag.Parse()
+	logger := utils.InitLogger()
+	defer logger.Sync()
+
+	config, err := utils.GetLBConfig()
+	if err != nil {
+		utils.Logger.Fatal(err.Error())
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	logger := utils.InitLogger()
-	defer logger.Sync()
-
-	backendEndpoints := strings.Split(backendList, ",")
-	if len(backendEndpoints) == 0 {
-		utils.Logger.Fatal("empty server pool")
-	}
-
 	serverPool := serverpool.NewServerPool()
 	loadBalancer := frontend.NewLoadBalancer(serverPool)
 
-	for _, u := range backendEndpoints {
+	for _, u := range config.Backends {
 		endpoint, err := url.Parse(u)
 		if err != nil {
 			logger.Fatal(err.Error(), zap.String("URL", u))
@@ -83,7 +73,7 @@ func main() {
 	}
 
 	server := http.Server{
-		Addr:    fmt.Sprintf(":%d", port),
+		Addr:    fmt.Sprintf(":%d", config.Port),
 		Handler: http.HandlerFunc(loadBalancer.Serve),
 	}
 
@@ -98,7 +88,7 @@ func main() {
 
 	logger.Info(
 		"Load Balancer started",
-		zap.Int("port", port),
+		zap.Int("port", config.Port),
 	)
 	if err := server.ListenAndServe(); err != http.ErrServerClosed {
 		logger.Fatal("ListenAndServe() error", zap.Error(err))
