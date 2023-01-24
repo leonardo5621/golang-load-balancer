@@ -17,39 +17,42 @@ type ServerPool interface {
 	GetServerPoolSize() int
 }
 
-type serverPool struct {
+type roundRobinServerPool struct {
 	backends []backend.Backend
 	current  uint64
 }
 
-func (s *serverPool) NextIndex() int {
-	return int(atomic.AddUint64(&s.current, uint64(1)) % uint64(len(s.backends)))
+func (s *roundRobinServerPool) NextIndex() int {
+	return int(atomic.AddUint64(&s.current, uint64(1)) % uint64(s.GetServerPoolSize()))
 }
 
-func (s *serverPool) GetNextPeer() backend.Backend {
+func (s *roundRobinServerPool) GetNextPeer() backend.Backend {
 	next := s.NextIndex()
-	l := len(s.backends) + next
+	backends := s.GetBackends()
+	spLen := s.GetServerPoolSize()
+	l := spLen + next
+
 	for i := next; i < l; i++ {
-		idx := i % len(s.backends)
-		if s.backends[idx].IsAlive() {
+		idx := i % spLen
+		if backends[idx].IsAlive() {
 			if i != next {
 				atomic.StoreUint64(&s.current, uint64(idx))
 			}
-			return s.backends[idx]
+			return backends[idx]
 		}
 	}
 	return nil
 }
 
-func (s *serverPool) GetBackends() []backend.Backend {
+func (s *roundRobinServerPool) GetBackends() []backend.Backend {
 	return s.backends
 }
 
-func (s *serverPool) AddBackend(b backend.Backend) {
+func (s *roundRobinServerPool) AddBackend(b backend.Backend) {
 	s.backends = append(s.backends, b)
 }
 
-func (s *serverPool) GetServerPoolSize() int {
+func (s *roundRobinServerPool) GetServerPoolSize() int {
 	return len(s.backends)
 }
 
@@ -82,7 +85,7 @@ func HealthCheck(ctx context.Context, s ServerPool) {
 }
 
 func NewServerPool() ServerPool {
-	return &serverPool{
+	return &roundRobinServerPool{
 		backends: make([]backend.Backend, 0),
 		current:  uint64(0),
 	}
