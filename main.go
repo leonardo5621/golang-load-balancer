@@ -32,7 +32,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	serverPool := serverpool.NewServerPool()
+	serverPool := serverpool.NewLeastConnectionServerPool()
 	loadBalancer := frontend.NewLoadBalancer(serverPool)
 
 	for _, u := range config.Backends {
@@ -50,10 +50,14 @@ func main() {
 			)
 			retries := frontend.GetRetryFromContext(request)
 
-			if retries < 3 {
+			if retries < config.RetryLimit {
 				<-time.After(50 * time.Duration(retries+1) * time.Millisecond)
-				ctx := context.WithValue(request.Context(), frontend.Retry, retries+1)
-				rp.ServeHTTP(writer, request.WithContext(ctx))
+
+				rp.ServeHTTP(writer,
+					request.WithContext(
+						context.WithValue(request.Context(), frontend.Retry, retries+1),
+					),
+				)
 				return
 			}
 
@@ -65,8 +69,12 @@ func main() {
 				zap.String("URL", request.URL.Path),
 				zap.Int("attempts", attempts),
 			)
-			ctx := context.WithValue(request.Context(), frontend.Attempts, attempts+1)
-			loadBalancer.Serve(writer, request.WithContext(ctx))
+			loadBalancer.Serve(
+				writer,
+				request.WithContext(
+					context.WithValue(request.Context(), frontend.Attempts, attempts+1),
+				),
+			)
 		}
 
 		serverPool.AddBackend(backendServer)
