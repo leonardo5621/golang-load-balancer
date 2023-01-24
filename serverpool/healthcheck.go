@@ -13,7 +13,7 @@ func LauchHealthCheck(ctx context.Context, sp ServerPool) {
 		select {
 		case <-t.C:
 			utils.Logger.Info("Starting health check...")
-			go sp.HealthCheck(ctx)
+			go HealthCheck(ctx, sp)
 		case <-ctx.Done():
 			utils.Logger.Info("Closing Health Check")
 			return

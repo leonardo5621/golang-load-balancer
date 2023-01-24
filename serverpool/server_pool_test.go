@@ -12,12 +12,10 @@ import (
 
 func TestPoolCreation(t *testing.T) {
 	sp := NewServerPool()
-	i := sp.NextIndex()
 	url, _ := url.Parse("http://localhost:3333")
 	b := backend.NewBackend(url, httputil.NewSingleHostReverseProxy(url))
 	sp.AddBackend(b)
 
-	assert.Equal(t, 1, i)
 	assert.Equal(t, 1, sp.GetServerPoolSize())
 }
 
@@ -41,17 +39,17 @@ func TestNextIndexIteration(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		for i := 0; i < 3; i++ {
-			sp.NextIndex()
+			sp.GetNextPeer()
 		}
 	}()
 
 	go func() {
 		defer wg.Done()
 		for i := 0; i < 2; i++ {
-			sp.NextIndex()
+			sp.GetNextPeer()
 		}
 	}()
 
 	wg.Wait()
-	assert.Equal(t, 2, sp.NextIndex())
+	assert.Equal(t, b3.GetURL().String(), sp.GetNextPeer().GetURL().String())
 }

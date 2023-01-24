@@ -11,6 +11,7 @@ type Backend interface {
 	SetAlive(bool)
 	IsAlive() bool
 	GetURL() *url.URL
+	GetActiveConnections() int
 	ServeThoughReverseProxy(http.ResponseWriter, *http.Request)
 }
 
@@ -18,7 +19,15 @@ type backend struct {
 	URL          *url.URL
 	Alive        bool
 	mux          sync.RWMutex
+	connections  int
 	ReverseProxy *httputil.ReverseProxy
+}
+
+func (b *backend) GetActiveConnections() int {
+	b.mux.RLock()
+	connections := b.connections
+	b.mux.RUnlock()
+	return connections
 }
 
 func (b *backend) SetAlive(alive bool) {
@@ -39,6 +48,15 @@ func (b *backend) GetURL() *url.URL {
 }
 
 func (b *backend) ServeThoughReverseProxy(rw http.ResponseWriter, req *http.Request) {
+	defer func() {
+		b.mux.Lock()
+		b.connections--
+		b.mux.Unlock()
+	}()
+
+	b.mux.Lock()
+	b.connections++
+	b.mux.Unlock()
 	b.ReverseProxy.ServeHTTP(rw, req)
 }
 
