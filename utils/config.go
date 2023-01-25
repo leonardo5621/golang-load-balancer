@@ -7,11 +7,28 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+type LBStrategy int
+
+const (
+	RoundRobin LBStrategy = iota
+	LeastConnected
+)
+
+func GetLBStrategy(strategy string) LBStrategy {
+	switch strategy {
+	case "least-connection":
+		return LeastConnected
+	default:
+		return RoundRobin
+	}
+}
+
 type Config struct {
 	Port            int      `yaml:"lb_port"`
 	RetryLimit      int      `yaml:"retry_limit"`
 	MaxAttemptLimit int      `yaml:"max_attempt_limit"`
 	Backends        []string `yaml:"backends"`
+	Strategy        string   `yaml:"strategy"`
 }
 
 func GetLBConfig() (*Config, error) {

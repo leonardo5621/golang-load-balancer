@@ -42,9 +42,3 @@ func (s *lcServerPool) GetServerPoolSize() int {
 func (s *lcServerPool) GetBackends() []backend.Backend {
 	return s.backends
 }
-
-func NewLeastConnectionServerPool() ServerPool {
-	return &lcServerPool{
-		backends: make([]backend.Backend, 0),
-	}
-}

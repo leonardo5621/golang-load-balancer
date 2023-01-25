@@ -2,6 +2,7 @@ package serverpool
 
 import (
 	"context"
+	"fmt"
 	"sync/atomic"
 	"time"
 
@@ -84,9 +85,18 @@ func HealthCheck(ctx context.Context, s ServerPool) {
 	}
 }
 
-func NewServerPool() ServerPool {
-	return &roundRobinServerPool{
-		backends: make([]backend.Backend, 0),
-		current:  uint64(0),
+func NewServerPool(strategy utils.LBStrategy) (ServerPool, error) {
+	switch strategy {
+	case utils.RoundRobin:
+		return &roundRobinServerPool{
+			backends: make([]backend.Backend, 0),
+			current:  uint64(0),
+		}, nil
+	case utils.LeastConnected:
+		return &lcServerPool{
+			backends: make([]backend.Backend, 0),
+		}, nil
+	default:
+		return nil, fmt.Errorf("Invalid strategy")
 	}
 }

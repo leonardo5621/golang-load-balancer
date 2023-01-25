@@ -32,7 +32,10 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	serverPool := serverpool.NewLeastConnectionServerPool()
+	serverPool, err := serverpool.NewServerPool(utils.GetLBStrategy(config.Strategy))
+	if err != nil {
+		utils.Logger.Fatal(err.Error())
+	}
 	loadBalancer := frontend.NewLoadBalancer(serverPool)
 
 	for _, u := range config.Backends {
