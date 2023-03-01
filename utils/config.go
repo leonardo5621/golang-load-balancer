@@ -31,7 +31,7 @@ type Config struct {
 	Strategy        string   `yaml:"strategy"`
 }
 
-const MAX_LB_ATTEMPTS = 3
+const MAX_LB_ATTEMPTS int = 3
 
 func GetLBConfig() (*Config, error) {
 	var config Config
