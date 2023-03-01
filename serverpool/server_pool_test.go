@@ -7,11 +7,12 @@ import (
 	"testing"
 
 	"github.com/leonardo5621/golang-load-balancer/backend"
+	"github.com/leonardo5621/golang-load-balancer/utils"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestPoolCreation(t *testing.T) {
-	sp := NewServerPool()
+	sp, _ := NewServerPool(utils.RoundRobin)
 	url, _ := url.Parse("http://localhost:3333")
 	b := backend.NewBackend(url, httputil.NewSingleHostReverseProxy(url))
 	sp.AddBackend(b)
@@ -20,7 +21,7 @@ func TestPoolCreation(t *testing.T) {
 }
 
 func TestNextIndexIteration(t *testing.T) {
-	sp := NewServerPool()
+	sp, _ := NewServerPool(utils.RoundRobin)
 	url, _ := url.Parse("http://localhost:3333")
 	b := backend.NewBackend(url, httputil.NewSingleHostReverseProxy(url))
 	sp.AddBackend(b)
@@ -51,5 +52,5 @@ func TestNextIndexIteration(t *testing.T) {
 	}()
 
 	wg.Wait()
-	assert.Equal(t, b3.GetURL().String(), sp.GetNextPeer().GetURL().String())
+	assert.Equal(t, b.GetURL().String(), sp.GetNextPeer().GetURL().String())
 }

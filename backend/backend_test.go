@@ -14,3 +14,10 @@ func TestBackendCreation(t *testing.T) {
 	assert.Equal(t, "http://localhost:3333", b.GetURL().String())
 	assert.Equal(t, true, b.IsAlive())
 }
+
+func TestBackendAlive(t *testing.T) {
+	url, _ := url.Parse("http://localhost:3333")
+	b := NewBackend(url, httputil.NewSingleHostReverseProxy(url))
+	b.SetAlive(b.IsAlive())
+	assert.Equal(t, false, b.IsAlive())
+}

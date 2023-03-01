@@ -40,8 +40,8 @@ type loadBalancer struct {
 func (lb *loadBalancer) GetAttemptLimit() int {
 	if lb.attemptLimit == 0 {
 		spLen := lb.serverPool.GetServerPoolSize()
-		if spLen >= 3 {
-			lb.attemptLimit = 3
+		if spLen >= utils.MAX_LB_ATTEMPTS {
+			lb.attemptLimit = utils.MAX_LB_ATTEMPTS
 		} else {
 			lb.attemptLimit = spLen
 		}
