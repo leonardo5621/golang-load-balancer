@@ -40,17 +40,17 @@ func TestNextIndexIteration(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		for i := 0; i < 3; i++ {
-			sp.GetNextPeer()
+			sp.GetNextValidPeer()
 		}
 	}()
 
 	go func() {
 		defer wg.Done()
 		for i := 0; i < 2; i++ {
-			sp.GetNextPeer()
+			sp.GetNextValidPeer()
 		}
 	}()
 
 	wg.Wait()
-	assert.Equal(t, b.GetURL().String(), sp.GetNextPeer().GetURL().String())
+	assert.Equal(t, b.GetURL().String(), sp.GetNextValidPeer().GetURL().String())
 }

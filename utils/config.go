@@ -25,7 +25,6 @@ func GetLBStrategy(strategy string) LBStrategy {
 
 type Config struct {
 	Port            int      `yaml:"lb_port"`
-	RetryLimit      int      `yaml:"retry_limit"`
 	MaxAttemptLimit int      `yaml:"max_attempt_limit"`
 	Backends        []string `yaml:"backends"`
 	Strategy        string   `yaml:"strategy"`

@@ -61,9 +61,9 @@ func (lb *loadBalancer) Serve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	peer := lb.serverPool.GetNextPeer()
+	peer := lb.serverPool.GetNextValidPeer()
 	if peer != nil {
-		peer.ServeThoughReverseProxy(w, r)
+		peer.Serve(w, r)
 		return
 	}
 	http.Error(w, "Service not available", http.StatusServiceUnavailable)

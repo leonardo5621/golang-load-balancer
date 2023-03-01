@@ -11,7 +11,7 @@ type lcServerPool struct {
 	mux      sync.RWMutex
 }
 
-func (s *lcServerPool) GetNextPeer() backend.Backend {
+func (s *lcServerPool) GetNextValidPeer() backend.Backend {
 	var leastConnectedPeer backend.Backend
 	for _, b := range s.backends {
 		if b.IsAlive() {

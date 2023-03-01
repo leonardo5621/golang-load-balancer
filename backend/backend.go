@@ -12,15 +12,15 @@ type Backend interface {
 	IsAlive() bool
 	GetURL() *url.URL
 	GetActiveConnections() int
-	ServeThoughReverseProxy(http.ResponseWriter, *http.Request)
+	Serve(http.ResponseWriter, *http.Request)
 }
 
 type backend struct {
-	URL          *url.URL
-	Alive        bool
+	url          *url.URL
+	alive        bool
 	mux          sync.RWMutex
 	connections  int
-	ReverseProxy *httputil.ReverseProxy
+	reverseProxy *httputil.ReverseProxy
 }
 
 func (b *backend) GetActiveConnections() int {
@@ -32,22 +32,22 @@ func (b *backend) GetActiveConnections() int {
 
 func (b *backend) SetAlive(alive bool) {
 	b.mux.Lock()
-	b.Alive = alive
+	b.alive = alive
 	b.mux.Unlock()
 }
 
 func (b *backend) IsAlive() bool {
 	b.mux.RLock()
-	alive := b.Alive
+	alive := b.alive
 	defer b.mux.RUnlock()
 	return alive
 }
 
 func (b *backend) GetURL() *url.URL {
-	return b.URL
+	return b.url
 }
 
-func (b *backend) ServeThoughReverseProxy(rw http.ResponseWriter, req *http.Request) {
+func (b *backend) Serve(rw http.ResponseWriter, req *http.Request) {
 	defer func() {
 		b.mux.Lock()
 		b.connections--
@@ -57,13 +57,13 @@ func (b *backend) ServeThoughReverseProxy(rw http.ResponseWriter, req *http.Requ
 	b.mux.Lock()
 	b.connections++
 	b.mux.Unlock()
-	b.ReverseProxy.ServeHTTP(rw, req)
+	b.reverseProxy.ServeHTTP(rw, req)
 }
 
 func NewBackend(u *url.URL, rp *httputil.ReverseProxy) Backend {
 	return &backend{
-		URL:          u,
-		Alive:        true,
-		ReverseProxy: rp,
+		url:          u,
+		alive:        true,
+		reverseProxy: rp,
 	}
 }

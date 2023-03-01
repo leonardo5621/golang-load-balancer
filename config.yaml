@@ -1,5 +1,6 @@
 lb_port: 3332
-retry_limit: 3
+strategy: least-connection
 backends:
   - "http://localhost:3333"
   - "http://localhost:3334"
+  - "http://localhost:3335"

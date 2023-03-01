@@ -51,18 +51,6 @@ func main() {
 				zap.String("host", endpoint.Host),
 				zap.Error(e),
 			)
-			retries := frontend.GetRetryFromContext(request)
-
-			if retries < config.RetryLimit {
-				<-time.After(50 * time.Duration(retries+1) * time.Millisecond)
-
-				rp.ServeHTTP(writer,
-					request.WithContext(
-						context.WithValue(request.Context(), frontend.Retry, retries+1),
-					),
-				)
-				return
-			}
 
 			backendServer.SetAlive(false)
 			attempts := frontend.GetAttemptsFromContext(request)
@@ -89,6 +77,7 @@ func main() {
 	}
 
 	go serverpool.LauchHealthCheck(ctx, serverPool)
+
 	go func() {
 		<-ctx.Done()
 		shutdownCtx, _ := context.WithTimeout(context.Background(), 10*time.Second)

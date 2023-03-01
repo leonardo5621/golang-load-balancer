@@ -58,15 +58,15 @@ func TestLeastConnectionLB(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 
-	peer := serverPool.GetNextPeer()
+	peer := serverPool.GetNextValidPeer()
 	t.Log(peer.GetURL().String())
 	assert.NotNil(t, peer)
 	go func() {
 		defer wg.Done()
-		peer.ServeThoughReverseProxy(w, req)
+		peer.Serve(w, req)
 	}()
 	time.Sleep(1 * time.Second)
-	peer2 := serverPool.GetNextPeer()
+	peer2 := serverPool.GetNextValidPeer()
 	t.Log(peer2.GetURL().String())
 	connPeer2 := peer2.GetActiveConnections()
 

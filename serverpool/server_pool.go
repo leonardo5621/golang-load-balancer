@@ -3,7 +3,7 @@ package serverpool
 import (
 	"context"
 	"fmt"
-	"sync/atomic"
+	"sync"
 	"time"
 
 	"github.com/leonardo5621/golang-load-balancer/backend"
@@ -13,33 +13,29 @@ import (
 
 type ServerPool interface {
 	GetBackends() []backend.Backend
-	GetNextPeer() backend.Backend
+	GetNextValidPeer() backend.Backend
 	AddBackend(backend.Backend)
 	GetServerPoolSize() int
 }
 
 type roundRobinServerPool struct {
 	backends []backend.Backend
-	current  uint64
+	mux      sync.RWMutex
+	current  int
 }
 
-func (s *roundRobinServerPool) NextIndex() int {
-	return int(atomic.AddUint64(&s.current, uint64(1)) % uint64(s.GetServerPoolSize()))
+func (s *roundRobinServerPool) Rotate() backend.Backend {
+	s.mux.Lock()
+	s.current = (s.current + 1) % s.GetServerPoolSize()
+	s.mux.Unlock()
+	return s.backends[s.current]
 }
 
-func (s *roundRobinServerPool) GetNextPeer() backend.Backend {
-	next := s.NextIndex()
-	backends := s.GetBackends()
-	spLen := s.GetServerPoolSize()
-	l := spLen + next
-
-	for i := next; i < l; i++ {
-		idx := i % spLen
-		if backends[idx].IsAlive() {
-			if i != next {
-				atomic.StoreUint64(&s.current, uint64(idx))
-			}
-			return backends[idx]
+func (s *roundRobinServerPool) GetNextValidPeer() backend.Backend {
+	for i := 0; i < s.GetServerPoolSize(); i++ {
+		nextPeer := s.Rotate()
+		if nextPeer.IsAlive() {
+			return nextPeer
 		}
 	}
 	return nil
@@ -90,7 +86,7 @@ func NewServerPool(strategy utils.LBStrategy) (ServerPool, error) {
 	case utils.RoundRobin:
 		return &roundRobinServerPool{
 			backends: make([]backend.Backend, 0),
-			current:  uint64(0),
+			current:  0,
 		}, nil
 	case utils.LeastConnected:
 		return &lcServerPool{
