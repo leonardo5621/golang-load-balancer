@@ -22,8 +22,7 @@ type LoadBalancer interface {
 }
 
 type loadBalancer struct {
-	serverPool   serverpool.ServerPool
-	attemptLimit int
+	serverPool serverpool.ServerPool
 }
 
 func (lb *loadBalancer) Serve(w http.ResponseWriter, r *http.Request) {
