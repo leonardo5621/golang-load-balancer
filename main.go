@@ -51,19 +51,28 @@ func main() {
 				zap.String("host", endpoint.Host),
 				zap.Error(e),
 			)
-
 			backendServer.SetAlive(false)
-			attempts := frontend.GetAttemptsFromContext(request)
+
+			if !frontend.AllowRetry(request) {
+				utils.Logger.Info(
+					"Max retry attempts reached, terminating",
+					zap.String("address", request.RemoteAddr),
+					zap.String("path", request.URL.Path),
+				)
+				http.Error(writer, "Service not available", http.StatusServiceUnavailable)
+				return
+			}
+
 			logger.Info(
 				"Attempting retry",
 				zap.String("address", request.RemoteAddr),
 				zap.String("URL", request.URL.Path),
-				zap.Int("attempts", attempts),
+				zap.Bool("retry", true),
 			)
 			loadBalancer.Serve(
 				writer,
 				request.WithContext(
-					context.WithValue(request.Context(), frontend.Attempts, attempts+1),
+					context.WithValue(request.Context(), frontend.RETRY_ATTEMPTED, true),
 				),
 			)
 		}
