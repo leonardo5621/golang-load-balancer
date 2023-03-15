@@ -3,9 +3,9 @@ Project of a Load Balancer in Golang
 
 A load balancer is a device responsible for distributing network traffic among a certain number of servers. Its a fundamental piece to increase reliability and robustness of modern applications
 
-The concept behind this project was based upon the , it consists of a basic load balancer written in Golang.
+The concept behind this project consists of a basic load balancer written in Golang.
 
-The input is given through a configuration file reffered as `config.yaml`,  example of a configuration file down below:
+The input is given through a configuration file refered to as `config.yaml`,  example of a configuration file down below:
 
 ```yaml
 ## Load Balancer Port
